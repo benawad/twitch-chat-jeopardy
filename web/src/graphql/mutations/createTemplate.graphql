@@ -1,0 +1,17 @@
+mutation CreateTemplate($data: String!) {
+  createTemplate(data: $data) {
+    id
+    title
+    sections {
+      name
+      questions {
+        text
+        pointValue
+        answers {
+          text
+          correct
+        }
+      }
+    }
+  }
+}

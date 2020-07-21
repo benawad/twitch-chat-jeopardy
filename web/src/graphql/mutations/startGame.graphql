@@ -1,0 +1,3 @@
+mutation StartGame($templateId: String!) {
+  startGame(templateId: $templateId)
+}

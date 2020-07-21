@@ -1,0 +1,3 @@
+mutation RemoveTemplate($templateId: String!) {
+  removeTemplate(templateId: $templateId)
+}

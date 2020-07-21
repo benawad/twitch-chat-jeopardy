@@ -1,0 +1,17 @@
+query Templates {
+  templates {
+    id
+    title
+    sections {
+      name
+      questions {
+        text
+        pointValue
+        answers {
+          text
+          correct
+        }
+      }
+    }
+  }
+}
