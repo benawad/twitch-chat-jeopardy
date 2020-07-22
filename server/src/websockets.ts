@@ -1,6 +1,14 @@
 import { Server } from "socket.io";
 import { RedisStore } from "connect-redis";
 import cookie from "cookie";
+import http from "http";
+import socketio from "socket.io";
+import express from "express";
+
+export const app = express();
+
+export const server = http.createServer(app);
+export const io = socketio(server);
 
 export const websockets = (io: Server, sessionStore: RedisStore) => {
   io.on("connection", async (socket) => {

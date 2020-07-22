@@ -5,9 +5,14 @@ import {
   __time_multiplier__,
   VOTE_LENGTH,
   PAUSE_LENGTH,
+  __game_state__,
+  LEADERBOARD_LENGTH,
+  QUESTION_LENGTH,
 } from "./constants";
 import { sleep } from "./utils/sleep";
 import { Question } from "./types/TemplateSection";
+import { io } from "./websockets";
+import debounce from "lodash.debounce";
 
 export enum States {
   nothing,
@@ -25,6 +30,35 @@ export let leaderBoard: Record<string, number> = {};
 export let correctAnswer = "";
 export let currentQuestionPointValue = 0;
 export let questionWinner = "";
+export let onNewVote = (computeWinner?: boolean) => {};
+
+const makeOnVote = (
+  state: "vote-c" | "vote-p",
+  title: string,
+  keyValue: Array<[string, string]>
+) => (computeWinner?: boolean, countdown?: number) => {
+  let maxKey = "";
+  let maxValue = -1;
+  const total = Object.entries(voteResults).reduce((pv, [key, cv]) => {
+    if (cv > maxValue) {
+      maxValue = cv;
+      maxKey = key;
+    }
+    return pv + cv;
+  }, 0);
+  io.emit(__game_state__, {
+    state,
+    options: keyValue.map(([key, label]) => ({
+      label,
+      key,
+      percent: Math.round((total / voteResults[key]) * 1000) / 10,
+      count: voteResults[key],
+      isWinner: computeWinner ? maxKey === key : false,
+    })),
+    title: title,
+    countdown: countdown || VOTE_LENGTH,
+  });
+};
 
 export const setQuestionWinner = (s: string) => {
   questionWinner = s;
@@ -74,21 +108,40 @@ export const askQuestion = async (question: Question) => {
       correctAnswer = key;
     }
   });
+  io.emit(__game_state__, {
+    state: "ask-q",
+    question,
+    countdown: QUESTION_LENGTH,
+  });
   twitchClient.say(
     __chan__,
     `TheIlluminati ${question.text} ${question.answers
       .map((a, idx) => `${idx} -> ${a.text}`)
       .join(" | ")}`
   );
-  sleep(VOTE_LENGTH).then(() => {
+  sleep(QUESTION_LENGTH).then(() => {
     state = States.nothing;
     twitchClient.say(
       __chan__,
       `FrankerZ Congrats to @${questionWinner} for being the first to answer correctly! You get 200 extra points.`
     );
     completeQuestions.add(question.text);
+    io.emit(__game_state__, {
+      state: "ask-q",
+      question,
+      winner: questionWinner,
+      countdown: PAUSE_LENGTH,
+    });
     sleep(PAUSE_LENGTH).then(() => {
-      pickNextCategory();
+      io.emit(__game_state__, {
+        state: "leaderboard",
+        scores: leaderBoard,
+        isGameOver: false,
+        countdown: LEADERBOARD_LENGTH,
+      });
+      sleep(LEADERBOARD_LENGTH).then(() => {
+        pickNextCategory();
+      });
     });
   });
 };
@@ -113,11 +166,13 @@ export const pickNextQuestion = async (sectionIdx: string) => {
 
   prepareVoting();
   const possiblePointValues: string[] = [];
+  const keyValue: Array<[string, string]> = [];
 
   section.questions.forEach((q) => {
     if (!completeQuestions.has(q.text)) {
       voteResults[q.pointValue] = 0;
       possiblePointValues.push(q.pointValue);
+      keyValue.push([q.pointValue, q.pointValue]);
     }
   });
 
@@ -128,6 +183,13 @@ export const pickNextQuestion = async (sectionIdx: string) => {
       section.questions.find((x) => x.pointValue === possiblePointValues[0])!
     );
   } else {
+    const _onNewVote = makeOnVote(
+      "vote-p",
+      "Vote Point Value for " + section.name,
+      keyValue
+    );
+    onNewVote = debounce(_onNewVote, 1000, { maxWait: 1000 });
+    _onNewVote();
     twitchClient.say(
       __chan__,
       `Vote for question: ${possiblePointValues.join(" | ")}`
@@ -135,6 +197,7 @@ export const pickNextQuestion = async (sectionIdx: string) => {
     sleep(VOTE_LENGTH).then(() => {
       state = States.nothing;
       const [pointValue] = getVoteWinner();
+      _onNewVote(true, PAUSE_LENGTH);
       askQuestion(section.questions.find((x) => x.pointValue === pointValue)!);
     });
   }
@@ -144,6 +207,12 @@ export const gameDone = () => {
   twitchClient.say(__chan__, "game is done " + JSON.stringify(leaderBoard));
   currentTemplate = null;
   completeQuestions.clear();
+  io.emit(__game_state__, {
+    state: "leaderboard",
+    scores: leaderBoard,
+    isGameOver: true,
+    countdown: -1,
+  });
 };
 
 export const prepareVoting = () => {
@@ -157,8 +226,10 @@ export const pickNextCategory = (first?: boolean) => {
   assertTemplate(currentTemplate);
   prepareVoting();
   const possibleSections: string[] = [];
+  const keyValue: Array<[string, string]> = [];
   currentTemplate.sections.forEach((s, idx) => {
     if (s.questions.some((x) => !completeQuestions.has(x.text))) {
+      keyValue.push(["" + idx, s.name]);
       possibleSections.push(`${idx} -> ${s.name}`);
       voteResults["" + idx] = 0;
     }
@@ -168,6 +239,9 @@ export const pickNextCategory = (first?: boolean) => {
   } else if (possibleSections.length === 1) {
     pickNextQuestion(Object.keys(voteResults)[0]);
   } else {
+    const _onNewVote = makeOnVote("vote-c", "Vote for Category", keyValue);
+    onNewVote = debounce(_onNewVote, 1000, { maxWait: 1000 });
+    _onNewVote();
     twitchClient.say(
       __chan__,
       `Vote for the ${
@@ -177,6 +251,7 @@ export const pickNextCategory = (first?: boolean) => {
     sleep(VOTE_LENGTH).then(() => {
       state = States.nothing;
       const question = getVoteWinner()[0];
+      _onNewVote(true, PAUSE_LENGTH);
       pickNextQuestion(question);
     });
   }
@@ -184,11 +259,15 @@ export const pickNextCategory = (first?: boolean) => {
 
 export const startGameWithTemplate = (template: Template) => {
   currentTemplate = template;
+  io.emit(__game_state__, {
+    state: "before",
+    countdown: PAUSE_LENGTH,
+  });
   twitchClient
     .say(
       __chan__,
       `DoritosChip Twitch Chat Jeopardy is about to begin, prepare yourself for a battle to the death`
     )
-    .then(() => sleep(10000 / __time_multiplier__))
+    .then(() => sleep(PAUSE_LENGTH))
     .then(() => pickNextCategory(true));
 };

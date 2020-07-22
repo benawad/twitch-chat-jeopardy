@@ -78,10 +78,7 @@ export function App() {
             <Route exact path="/admin-login">
               <AdminLogin />
             </Route>
-            <Route exact path="/">
-              <div>yo</div>
-            </Route>
-            <Route exact path="/templates">
+            <Route exact path={["/", "/templates"]}>
               <ViewTemplates />
             </Route>
             <Route exact path="/templates/add">

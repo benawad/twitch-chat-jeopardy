@@ -2,7 +2,6 @@ import "dotenv-safe/config";
 import "reflect-metadata";
 import bodyParser from "body-parser";
 import { createGraphqlMiddleware } from "express-gql";
-import express from "express";
 import { buildSchema } from "type-graphql";
 import expressPlayground from "graphql-playground-middleware-express";
 import { AuthResolver } from "./resolvers/AuthResolver";
@@ -15,9 +14,7 @@ import { __prod__ } from "./constants";
 import mikroOrmConfig from "./mikro-orm.config";
 import { TemplateResolver } from "./resolvers/TemplateResolver";
 import { MikroORM } from "@mikro-orm/core";
-import http from "http";
-import socketio from "socket.io";
-import { websockets } from "./websockets";
+import { websockets, app, server, io } from "./websockets";
 
 const RedisStore = connectRedis(session as any);
 
@@ -30,11 +27,6 @@ const sessionStore = new RedisStore({
 (async () => {
   const orm = await MikroORM.init(mikroOrmConfig);
   await orm.getMigrator().up();
-
-  const app = express();
-
-  const server = http.createServer(app);
-  const io = socketio(server);
 
   websockets(io, sessionStore);
 

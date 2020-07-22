@@ -10,6 +10,7 @@ import {
   currentQuestionPointValue,
   questionWinner,
   setQuestionWinner,
+  onNewVote,
 } from "./game-logic";
 
 export const twitchClient = createClient({
@@ -38,33 +39,28 @@ twitchClient.on("message", (target, _context, msg, self) => {
 
     previousVoters.add(_context["display-name"]);
     voteResults[msg]++;
+    onNewVote();
     return;
   }
 
   if (state === States.collectWhoVoted) {
-    console.log(msg, voteResults);
     if (!(msg in voteResults)) {
-      console.log("gg");
       return;
     }
 
     const timestamp = parseInt(_context["tmi-sent-ts"] || "0");
     const displayName = _context["display-name"];
-    console.log(
-      timestamp < collectStartTime,
-      !displayName,
-      previousVoters.has(_context["display-name"])
-    );
     if (
       timestamp < collectStartTime ||
       !displayName ||
       previousVoters.has(_context["display-name"])
     ) {
-      console.log("rip");
       return;
     }
-    console.log("here", correctAnswer, msg, correctAnswer === msg);
     previousVoters.add(displayName);
+    if (!(displayName in leaderBoard)) {
+      leaderBoard[displayName] = 0;
+    }
     if (correctAnswer === msg) {
       let isWinner = false;
       if (!questionWinner) {
@@ -72,15 +68,14 @@ twitchClient.on("message", (target, _context, msg, self) => {
         setQuestionWinner(displayName);
       }
       voteResults[msg]++;
-      if (!(displayName in leaderBoard)) {
-        leaderBoard[displayName] = 0;
-      }
 
       leaderBoard[displayName] +=
         Math.ceil(
           currentQuestionPointValue /
             Math.min(1, Math.floor((timestamp - collectStartTime) * 1000))
         ) + (isWinner ? 200 : 0);
+    } else {
+      leaderBoard[displayName] -= 50;
     }
     return;
   }

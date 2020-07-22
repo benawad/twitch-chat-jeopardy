@@ -8,6 +8,7 @@ import { PickCategory, VoteOption } from "../components/PickCategory";
 import { setIn } from "formik";
 import { AskQuestion } from "../components/AskQuestion";
 import { Leaderboard } from "../components/Leaderboard";
+import { Countdown } from "../components/Countdown";
 
 const socket = io("http://localhost:4000");
 
@@ -22,7 +23,7 @@ type BeforeGameState = {
 };
 
 type VoteState = {
-  state: "vote";
+  state: "vote-c" | "vote-p";
   options: Array<VoteOption>;
   title: string;
 };
@@ -33,12 +34,20 @@ type AskQuestionState = {
   winner?: string;
 };
 
-type States = AskQuestionState | LeaderboardState | BeforeGameState | VoteState;
+type States = (
+  | AskQuestionState
+  | LeaderboardState
+  | BeforeGameState
+  | VoteState
+) & { countdown: number };
 
 interface GameProps {}
 
 export const Game: React.FC<GameProps> = ({}) => {
-  const [gameState, setGameState] = useState<States>({ state: "before" });
+  const [gameState, setGameState] = useState<States>({
+    state: "before",
+    countdown: -1,
+  });
   const {
     params: { templateId },
   } = useRouteMatch<{ templateId: string }>();
@@ -82,11 +91,17 @@ export const Game: React.FC<GameProps> = ({}) => {
       {gameState.state === "before" ? (
         <JeopardyBoard template={currentTemplate} />
       ) : null}
-      {gameState.state === "vote" ? <PickCategory {...gameState} /> : null}
+      {gameState.state === "vote-c" || gameState.state === "vote-p" ? (
+        <PickCategory {...gameState} />
+      ) : null}
       {gameState.state === "ask-q" ? <AskQuestion {...gameState} /> : null}
       {gameState.state === "leaderboard" ? (
         <Leaderboard {...gameState} />
       ) : null}
+      <Countdown
+        key={gameState.state + gameState.countdown}
+        countdown={gameState.countdown}
+      />
     </Box>
   );
 };
