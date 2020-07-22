@@ -3,7 +3,7 @@ import { useRouteMatch } from "react-router-dom";
 import io from "socket.io-client";
 import { useTemplatesQuery, Question } from "../generated/graphql";
 import { JeopardyBoard } from "../components/JeopardyBoard";
-import { Box } from "@chakra-ui/core";
+import { Box, Flex } from "@chakra-ui/core";
 import { PickCategory, VoteOption } from "../components/PickCategory";
 import { setIn } from "formik";
 import { AskQuestion } from "../components/AskQuestion";
@@ -29,7 +29,7 @@ type VoteState = {
 };
 
 type AskQuestionState = {
-  state: "ask-q";
+  state: "ask-q" | "wait";
   question: Question;
   winner?: string;
 };
@@ -44,6 +44,14 @@ type States = (
 interface GameProps {}
 
 export const Game: React.FC<GameProps> = ({}) => {
+  const [leaderboard, setLeaderboard] = useState<
+    LeaderboardState & { countdown: number }
+  >({
+    isGameOver: false,
+    scores: {},
+    state: "leaderboard",
+    countdown: -1,
+  });
   const [gameState, setGameState] = useState<States>({
     state: "before",
     countdown: -1,
@@ -57,7 +65,14 @@ export const Game: React.FC<GameProps> = ({}) => {
 
   useEffect(() => {
     socket.on("new-game-state", (state: any) => {
-      setGameState(state);
+      if (state.state === "leaderboard") {
+        setLeaderboard(state);
+        setGameState((gs: any) => {
+          return { ...gs, state: "wait", countdown: 7000 };
+        });
+      } else {
+        setGameState(state);
+      }
     });
 
     return () => {
@@ -87,21 +102,23 @@ export const Game: React.FC<GameProps> = ({}) => {
   }
 
   return (
-    <Box>
-      {gameState.state === "before" ? (
-        <JeopardyBoard template={currentTemplate} />
-      ) : null}
-      {gameState.state === "vote-c" || gameState.state === "vote-p" ? (
-        <PickCategory {...gameState} />
-      ) : null}
-      {gameState.state === "ask-q" ? <AskQuestion {...gameState} /> : null}
-      {gameState.state === "leaderboard" ? (
-        <Leaderboard {...gameState} />
-      ) : null}
+    <Flex ml={4}>
+      <Leaderboard {...leaderboard} />
+      <Box flex={1}>
+        {gameState.state === "before" ? (
+          <JeopardyBoard template={currentTemplate} />
+        ) : null}
+        {gameState.state === "vote-c" || gameState.state === "vote-p" ? (
+          <PickCategory {...gameState} />
+        ) : null}
+        {gameState.state === "ask-q" || gameState.state === "wait" ? (
+          <AskQuestion {...gameState} />
+        ) : null}
+      </Box>
       <Countdown
         key={gameState.state + gameState.countdown}
         countdown={gameState.countdown}
       />
-    </Box>
+    </Flex>
   );
 };

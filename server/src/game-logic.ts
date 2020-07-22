@@ -51,7 +51,7 @@ const makeOnVote = (
     options: keyValue.map(([key, label]) => ({
       label,
       key,
-      percent: Math.round((total / voteResults[key]) * 1000) / 10,
+      percent: (total === 0 ? 0 : (voteResults[key] / total) * 100).toFixed(1),
       count: voteResults[key],
       isWinner: computeWinner ? maxKey === key : false,
     })),
@@ -90,6 +90,7 @@ export const getVoteWinner = (): [string, number] => {
   return [maxIdx, maxValue];
 };
 
+const questionKeys = ["a", "b", "c", "d", "e"];
 export const askQuestion = async (question: Question) => {
   twitchClient.say(__chan__, `RarePepe ${question.pointValue} points`);
 
@@ -102,7 +103,7 @@ export const askQuestion = async (question: Question) => {
   setCollectStartTime();
   state = States.collectWhoVoted;
   question.answers.forEach((a, idx) => {
-    const key = "" + idx;
+    const key = questionKeys[idx];
     voteResults[key] = 0;
     if (a.correct) {
       correctAnswer = key;
@@ -116,7 +117,7 @@ export const askQuestion = async (question: Question) => {
   twitchClient.say(
     __chan__,
     `TheIlluminati ${question.text} ${question.answers
-      .map((a, idx) => `${idx} -> ${a.text}`)
+      .map((a, idx) => `${questionKeys[idx]} -> ${a.text}`)
       .join(" | ")}`
   );
   sleep(QUESTION_LENGTH).then(() => {
@@ -270,4 +271,5 @@ export const startGameWithTemplate = (template: Template) => {
     )
     .then(() => sleep(PAUSE_LENGTH))
     .then(() => pickNextCategory(true));
+  // .then(() => askQuestion(currentTemplate?.sections[0].questions[0]!));
 };

@@ -31,14 +31,16 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
           <Flex
             backgroundColor="#2D3748"
             fontWeight={600}
-            fontSize={20}
+            fontSize={14}
             color="white"
             p={4}
             width="100%"
             justifyContent="space-between"
           >
             <Box flex={1}>Rank</Box>
-            <Box flex={3}>Username</Box>
+            <Box ml={4} flex={3}>
+              Username
+            </Box>
             <Box flex={1}>Points</Box>
           </Flex>
           {sortedScores.map(([username, score], i) => (
@@ -54,7 +56,9 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
               key={username}
             >
               <Box flex={1}>{i}</Box>
-              <Box flex={3}>{username}</Box>
+              <Box ml={4} flex={3}>
+                {username}
+              </Box>
               <Box flex={1}>{score}</Box>
             </Flex>
           ))}

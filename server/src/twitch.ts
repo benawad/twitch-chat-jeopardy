@@ -75,7 +75,7 @@ twitchClient.on("message", (target, _context, msg, self) => {
             Math.min(1, Math.floor((timestamp - collectStartTime) * 1000))
         ) + (isWinner ? 200 : 0);
     } else {
-      leaderBoard[displayName] -= 50;
+      leaderBoard[displayName] = Math.max(0, leaderBoard[displayName] - 50);
     }
     return;
   }

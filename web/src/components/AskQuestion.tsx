@@ -7,6 +7,7 @@ interface AskQuestionProps {
   winner?: string;
 }
 
+const questionKeys = ["a", "b", "c", "d", "e"];
 export const AskQuestion: React.FC<AskQuestionProps> = ({
   question,
   winner,
@@ -37,7 +38,7 @@ export const AskQuestion: React.FC<AskQuestionProps> = ({
                 py={2}
               >
                 <Box zIndex={1}>
-                  {i} -{">"} {q.text}
+                  {questionKeys[i]} -{">"} {q.text}
                 </Box>
               </Flex>
             );
